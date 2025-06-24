@@ -1,17 +1,18 @@
-// APP COMPLETO: Express com HTML embutido para download em massa de imagens (com CORS, feedback visual e compatível com Render)
+// APP COMPLETO: Express com HTML embutido para download em massa de imagens (com CORS, formulário real e compatível com Render)
 
 const express = require('express');
 const axios = require('axios');
 const archiver = require('archiver');
 const path = require('path');
 const cors = require('cors');
+const bodyParser = require('body-parser');
 
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: '10mb' }));
+app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Página principal
+// Página principal com formulário real
 app.get('/', (req, res) => {
   res.send(`<!DOCTYPE html>
 <html lang="pt-BR">
@@ -28,53 +29,23 @@ app.get('/', (req, res) => {
 <body>
   <h2>Baixar Imagens em ZIP</h2>
   <p>Cole os links das imagens (um por linha):</p>
-  <textarea id="links" placeholder="Cole os links aqui..."></textarea>
-  <br>
-  <button onclick="baixarZip()">Baixar .zip</button>
-  <div id="status"></div>
-
-  <script>
-    async function baixarZip() {
-      const status = document.getElementById('status');
-      const rawLinks = document.getElementById('links').value;
-      const links = rawLinks.split(/\n+/).map(l => l.trim()).filter(Boolean);
-      if (links.length === 0) return alert('Cole ao menos um link!');
-
-      status.textContent = 'Enviando links para o servidor...';
-
-      const response = await fetch('/download-images', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ links })
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        status.textContent = 'Erro ao gerar o zip: ' + errorText;
-        return;
-      }
-
-      status.textContent = 'Baixando o ZIP com as imagens...';
-
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'imagens.zip';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-
-      status.textContent = '✅ Download concluído com sucesso!';
-    }
-  </script>
+  <form method="POST" action="/download-images">
+    <textarea name="links" placeholder="Cole os links aqui..."></textarea>
+    <br>
+    <button type="submit">Baixar .zip</button>
+  </form>
+  <div id="status">Aguarde o download iniciar...</div>
 </body>
 </html>`);
 });
 
-// Rota para gerar e enviar o ZIP
+// Rota com envio via form POST
 app.post('/download-images', async (req, res) => {
-  const { links } = req.body;
+  let links = req.body.links;
+  if (!links) return res.status(400).send('Nenhum link recebido');
+
+  // Aceita links separados por nova linha
+  links = links.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
   if (!Array.isArray(links) || links.length === 0) {
     return res.status(400).send('Lista de links inválida');
   }
