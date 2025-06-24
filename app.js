@@ -1,4 +1,4 @@
-// APP COMPLETO: Express com HTML embutido para download em massa de imagens (com CORS e ajustes para Render)
+// APP COMPLETO: Express com HTML embutido para download em massa de imagens (com CORS, feedback visual e compatível com Render)
 
 const express = require('express');
 const axios = require('axios');
@@ -8,7 +8,7 @@ const cors = require('cors');
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Página principal
@@ -40,7 +40,7 @@ app.get('/', (req, res) => {
       const links = rawLinks.split(/\n+/).map(l => l.trim()).filter(Boolean);
       if (links.length === 0) return alert('Cole ao menos um link!');
 
-      status.textContent = 'Gerando arquivo .zip...';
+      status.textContent = 'Enviando links para o servidor...';
 
       const response = await fetch('/download-images', {
         method: 'POST',
@@ -49,9 +49,12 @@ app.get('/', (req, res) => {
       });
 
       if (!response.ok) {
-        status.textContent = 'Erro ao gerar o zip.';
+        const errorText = await response.text();
+        status.textContent = 'Erro ao gerar o zip: ' + errorText;
         return;
       }
+
+      status.textContent = 'Baixando o ZIP com as imagens...';
 
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
@@ -62,7 +65,7 @@ app.get('/', (req, res) => {
       a.click();
       a.remove();
 
-      status.textContent = 'Download concluído com sucesso!';
+      status.textContent = '✅ Download concluído com sucesso!';
     }
   </script>
 </body>
@@ -82,6 +85,11 @@ app.post('/download-images', async (req, res) => {
   res.setHeader('Cache-Control', 'no-cache');
 
   const archive = archiver('zip');
+  archive.on('error', err => {
+    console.error('Erro no archiver:', err);
+    res.status(500).send('Erro ao gerar o arquivo ZIP.');
+  });
+
   archive.pipe(res);
 
   for (let i = 0; i < links.length; i++) {
@@ -90,8 +98,10 @@ app.post('/download-images', async (req, res) => {
       const response = await axios.get(url, { responseType: 'stream' });
       const filename = url.split('/').pop().split('?')[0] || `imagem${i + 1}.jpg`;
       archive.append(response.data, { name: filename });
+      console.log(`✔️ Imagem adicionada: ${filename}`);
     } catch (error) {
-      console.error(`Erro ao baixar ${url}:`, error.message);
+      console.error(`❌ Falha ao baixar ${url}:`, error.message);
+      archive.append(`Erro ao baixar ${url}: ${error.message}\n`, { name: `erro_${i + 1}.txt` });
     }
   }
 
