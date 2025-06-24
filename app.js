@@ -1,4 +1,4 @@
-// APP COMPLETO: Express com HTML embutido para download em massa de imagens (com suporte a CORS)
+// APP COMPLETO: Express com HTML embutido para download em massa de imagens (com CORS e ajustes para Render)
 
 const express = require('express');
 const axios = require('axios');
@@ -78,6 +78,8 @@ app.post('/download-images', async (req, res) => {
 
   res.setHeader('Content-Disposition', 'attachment; filename=imagens.zip');
   res.setHeader('Content-Type', 'application/zip');
+  res.setHeader('Transfer-Encoding', 'chunked');
+  res.setHeader('Cache-Control', 'no-cache');
 
   const archive = archiver('zip');
   archive.pipe(res);
