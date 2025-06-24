@@ -1,11 +1,13 @@
-// APP COMPLETO: Express com HTML embutido para download em massa de imagens
+// APP COMPLETO: Express com HTML embutido para download em massa de imagens (com suporte a CORS)
 
 const express = require('express');
 const axios = require('axios');
 const archiver = require('archiver');
 const path = require('path');
+const cors = require('cors');
 
 const app = express();
+app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
